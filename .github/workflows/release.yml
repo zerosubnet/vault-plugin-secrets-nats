@@ -6,12 +6,31 @@ on:
     branches:
       - main
       - beta
+      - zs
     types:
       - completed
 
 jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go 1.21.10
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21.10'
+
+      - name: Run Tests
+        run: |
+          make test
   build:
     name: Build
+    needs: test
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -23,28 +42,22 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: "lts/*"
-
       - name: Set up Go 1.21.10
         uses: actions/setup-go@v5
         with:
           go-version: '1.21.10'
-      
-      - name: Install build utils
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-multilib
-
-      - name: Run Tests
-        run: |
-          make OS=${{ matrix.os }} GOARCH=${{ matrix.architecture }} test
 
       - name: Build the artifacts
         run: |
           make OS=${{ matrix.os }} GOARCH=${{ matrix.architecture }} build
+
+      - name: uplpoad built artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: vault-plugin-secrets-nats-${{ matrix.os }}-${{ matrix.architecture }}
+          path: build/vault/plugins/vault-plugin-secrets-nats-*
+          retention-days: 1
+          overwrite: true
   release:
     name: Release
     runs-on: ubuntu-latest
@@ -59,6 +72,12 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: "lts/*"
+      
+      - name: Download built artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: build/vault/plugins/
+          merge-multiple: true
 
       - name: Release
         env:
@@ -68,6 +87,4 @@ jobs:
           #!/bin/bash
           set -e
           npm install @semantic-release/exec @eclass/semantic-release-docker @semantic-release/git -D
-          # the ... || true is to prevent the script from failing caused by a bug in semantic-release regarding 
-          # rate limit changes on github. See https://github.com/semantic-release/github/pull/487
-          npx -c semantic-release || true
+          npx -c semantic-release
