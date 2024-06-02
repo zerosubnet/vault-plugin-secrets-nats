@@ -203,6 +203,11 @@ func (b *NatsBackend) pathDeleteAccountIssue(ctx context.Context, req *logical.R
 }
 
 func addAccountIssue(ctx context.Context, storage logical.Storage, params IssueAccountParameters) error {
+
+	log.Info().
+		Str("operator", params.Operator).Str("account", params.Account).
+		Msgf("issue account")
+
 	// store issue
 	issue, err := storeAccountIssue(ctx, storage, params)
 	if err != nil {
@@ -440,7 +445,7 @@ func issueAccountNKeys(ctx context.Context, storage logical.Storage, issue Issue
 	}
 
 	log.Info().
-		Str("operator", issue.Operator).Str("account", issue.Account).Msgf("nkey created/updated")
+		Str("operator", issue.Operator).Str("account", issue.Account).Msgf("nkey assigned")
 
 	return nil
 }
@@ -541,6 +546,7 @@ func issueAccountJWT(ctx context.Context, storage logical.Storage, issue IssueAc
 
 	issue.Claims.ClaimsData.Subject = accountPublicKey
 	issue.Claims.ClaimsData.Issuer = signingPublicKey
+	issue.Claims.ClaimsData.IssuedAt = time.Now().Unix()
 	// TODO: dont know how to handle scopes of signing keys
 	issue.Claims.Account.SigningKeys = signingPublicKeys
 	natsJwt, err := v1alpha1.Convert(&issue.Claims)
@@ -565,7 +571,7 @@ func issueAccountJWT(ctx context.Context, storage logical.Storage, issue IssueAc
 	}
 	log.Info().
 		Str("operator", issue.Operator).Str("account", issue.Account).
-		Msgf("jwt created/updated")
+		Msgf("jwt nkey assigned")
 	return nil
 }
 
@@ -599,15 +605,22 @@ func updateUserIssues(ctx context.Context, storage logical.Storage, issue IssueA
 	return nil
 }
 
+type AccountResolverAction string
+
+const (
+	AccountResolverActionPush   AccountResolverAction = "push"
+	AccountResolverActionDelete AccountResolverAction = "delete"
+)
+
 func refreshAccountResolverPush(ctx context.Context, storage logical.Storage, issue *IssueAccountStorage) error {
-	return refreshAccountResolver(ctx, storage, issue, "push")
+	return refreshAccountResolver(ctx, storage, issue, AccountResolverActionPush)
 }
 
 func refreshAccountResolverDelete(ctx context.Context, storage logical.Storage, issue *IssueAccountStorage) error {
-	return refreshAccountResolver(ctx, storage, issue, "delete")
+	return refreshAccountResolver(ctx, storage, issue, AccountResolverActionDelete)
 }
 
-func refreshAccountResolver(ctx context.Context, storage logical.Storage, issue *IssueAccountStorage, action string) error {
+func refreshAccountResolver(ctx context.Context, storage logical.Storage, issue *IssueAccountStorage, action AccountResolverAction) error {
 	// read operator issue
 	op, err := readOperatorIssue(ctx, storage, IssueOperatorParameters{
 		Operator: issue.Operator,
@@ -684,21 +697,23 @@ func refreshAccountResolver(ctx context.Context, storage logical.Storage, issue 
 			Str("account", issue.Account).
 			Err(err).
 			Msg("cannot create conection to account server")
+		resolver.CloseConnection()
 		return nil
 	}
 	defer resolver.CloseConnection()
 
 	switch {
-	case action == "push":
+	case action == AccountResolverActionPush:
 		err = resolver.PushAccount(issue.Account, []byte(accJWT.JWT))
 		if err != nil {
 			log.Error().Str("operator", issue.Operator).
 				Str("account", issue.Account).
 				Err(err).
 				Msg("cannot sync account server (add)")
+			resolver.CloseConnection()
 			return nil
 		}
-	case action == "delete":
+	case action == AccountResolverActionDelete:
 		operatorNkey, err := readOperatorNkey(ctx, storage, NkeyParameters{
 			Operator: issue.Operator,
 		})
@@ -749,6 +764,7 @@ func refreshAccountResolver(ctx context.Context, storage logical.Storage, issue 
 				Str("account", issue.Account).
 				Err(err).
 				Msg("cannot sync account server (delete)")
+			resolver.CloseConnection()
 			return nil
 		}
 	}

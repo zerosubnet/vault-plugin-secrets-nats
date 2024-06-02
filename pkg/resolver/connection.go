@@ -12,7 +12,11 @@ import (
 )
 
 func (r *Resolver) CloseConnection() {
-	r.nc.Close()
+	if r != nil {
+		if r.nc != nil {
+			r.nc.Close()
+		}
+	}
 }
 
 func isNatsUrl(url string) bool {

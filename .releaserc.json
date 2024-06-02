@@ -23,11 +23,27 @@
         "registries": [
           {
             "url": "ghcr.io",
-            "imageName": "ghcr.io/edgefarm/vault-plugin-secrets-nats/vault-with-nats-secrets",
+            "imageName": "ghcr.io/zerosubnet/vault-plugin-secrets-nats/vault-with-nats-secrets",
             "user": "GITHUB_USER",
             "password": "GITHUB_TOKEN"
           }
         ]
+      }
+    ],
+    [
+      "@semantic-release/exec",
+      {
+        "prepareCmd": "sh ./ci/semantic-release-patch-files.sh ${nextRelease.version}"
+      }
+    ],
+    [
+      "@semantic-release/git",
+      {
+        "assets": [
+          "README.md",
+          "dev/manifests/vault/vault.yaml"
+        ],
+        "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
       }
     ],
     "@semantic-release/release-notes-generator",
@@ -36,8 +52,7 @@
       {
         "assets": [
           {
-            "path": "build/vault/plugins/vault-plugin-secrets-nats",
-            "label": "vault-plugin-secrets-nats"
+            "path": "build/vault/plugins/vault-plugin-secrets-*"
           }
         ]
       }

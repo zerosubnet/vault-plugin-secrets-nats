@@ -169,6 +169,10 @@ Configure your vault server to have a valid `plugins_directory` configuration.
 
 Download the latest stable release from the [release](https://github.com/edgefarm/vault-plugin-secrets-nats/releases) page and put it into the `plugins_directory` of your vault server.
 
+To use a vault plugin you need the plugin's sha256 sum. You can download the file `vault-plugin-secrets-nats.sha256` file from the release, obtain it with `sha256sum vault-plugin-secrets-nats` or look within the OCI image at `/etc/vault/vault_plugins_checksums/vault-plugin-secrets-nats.sha256`.
+
+Example how to register the plugin:
+
 ```console
 SHA256SUM=$(sha256sum vault-plugin-secrets-nats | cut -d' ' -f1)
 vault plugin register -sha256 ${SHA256SUM} secret vault-plugin-secrets-nats
@@ -193,7 +197,7 @@ metadata:
 spec:
   size: 1
   # Use the custom vault image containing the NATS secrets plugin
-  image: ghcr.io/edgefarm/vault-plugin-secrets-nats/vault-with-nats-secrets:latest
+  image: ghcr.io/edgefarm/vault-plugin-secrets-nats/vault-with-nats-secrets:1.5.2
   config:
     disable_mlock: true
     plugin_directory: "/etc/vault/vault_plugins"
@@ -205,7 +209,7 @@ spec:
     plugins:
     - plugin_name: vault-plugin-secrets-nats
       command: vault-plugin-secrets-nats --tls-skip-verify --ca-cert=/vault/tls/ca.crt
-      sha256: be9598c2cda1d58eed933def71290b1ae7c57a15fcecc0d1bbf320bd14df0b6e
+      sha256: 62b842dbc90748b199d660fe620e4f18bf507de0d6d693cd2cab97fc0680545a
       type: secret
     secrets:
     - path: nats-secrets
@@ -365,7 +369,7 @@ Code contributions are very much **welcome**.
 2. Create your Branch (`git checkout -b AmazingFeature`)
 3. Commit your Changes (`git commit -m 'Add some AmazingFeature")
 4. Push to the Branch (`git push origin AmazingFeature`)
-5. Open a Pull Request targetting the `beta` branch.
+5. Open a Pull Request targetting the `main` branch.
 
 # 🫶 Acknowledgements
 
