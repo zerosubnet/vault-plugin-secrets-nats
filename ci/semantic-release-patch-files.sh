@@ -1,12 +1,12 @@
 #!/bin/sh
 set -e
 NEXTVERSION=$1
-for file in build/vault/plugins/vault-plugin-secrets-nats*; do
+for file in build/vault/plugins/vault-plugin-secrets-nats-*; do
   sha256sum $file > $file.sha256
     # this is to retain backward compatibility with the old naming convention
     if echo "$file" | grep -q "amd64"; then
-        copy $file build/vault/plugins/vault-plugin-secrets-nats
-        copy $file.sha256 build/vault/plugins/vault-plugin-secrets-nats.sha256
+        cp $file ./build/vault/plugins/vault-plugin-secrets-nats
+        cp $file.sha256 build/vault/plugins/vault-plugin-secrets-nats.sha256
     fi
 done
 # only use x86 for the README.md and dev/manifests/vault/vault.yaml
